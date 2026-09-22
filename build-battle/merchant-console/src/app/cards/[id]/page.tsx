@@ -7,6 +7,7 @@ import { formatInZone } from "@/lib/dates"
 import { formatMoney } from "@/lib/money"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { CancelCardAction } from "./cancel-card-action"
 
 export default async function CardDetail({
   params,
@@ -36,6 +37,10 @@ export default async function CardDetail({
         <StatusBadge status={card.status} />
       </div>
       <p className="mt-1 font-mono text-sm text-gray-500">{card.id}</p>
+
+      <div className="mt-4">
+        <CancelCardAction cardId={card.id} status={card.status} />
+      </div>
 
       <Divider />
 
