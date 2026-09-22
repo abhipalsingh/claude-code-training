@@ -5,11 +5,7 @@ import type { CardStatus } from "@/data/types"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
-/**
- * Freeze/unfreeze toggle for a single card row. Renders nothing for a
- * `cancelled` card since that status is terminal server-side — there is no
- * legal transition out of it for this control to offer.
- */
+/** Freeze/unfreeze toggle for one card row; renders nothing once cancelled (terminal). */
 export function CardStatusAction({
   cardId,
   status,
