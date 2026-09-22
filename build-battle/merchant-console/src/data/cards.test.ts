@@ -3,6 +3,7 @@ import {
   canTransitionCardStatus,
   cardById,
   createCard,
+  createCardIdempotent,
   listCards,
   maskCard,
   toCardCreateInput,
@@ -74,6 +75,27 @@ describe("validateCardInput", () => {
     const error = validateCardInput({ ...VALID_INPUT, nickname: "   " })
     expect(error?.field).toBe("nickname")
   })
+
+  it("rejects a currency that doesn't match the merchant's currency", () => {
+    const gbpMerchant = merchants.find((m) => m.currency === "GBP")!
+    const error = validateCardInput({
+      ...VALID_INPUT,
+      merchantId: gbpMerchant.id,
+      currency: "USD",
+    })
+    expect(error?.field).toBe("currency")
+  })
+
+  it("accepts a currency that matches the merchant's currency", () => {
+    const gbpMerchant = merchants.find((m) => m.currency === "GBP")!
+    expect(
+      validateCardInput({
+        ...VALID_INPUT,
+        merchantId: gbpMerchant.id,
+        currency: "GBP",
+      }),
+    ).toBeNull()
+  })
 })
 
 describe("createCard", () => {
@@ -96,6 +118,35 @@ describe("createCard", () => {
   it("appears in listCards", () => {
     createCard(toCardCreateInput(VALID_INPUT))
     expect(listCards()).toHaveLength(1)
+  })
+})
+
+describe("createCardIdempotent", () => {
+  // Each case uses its own never-reused key: the idempotency cache is
+  // process-lifetime, not reset by the store.cards.length reset above, so a
+  // key shared across cases here would leak between them.
+  it("creates once per key, replaying the same result on a repeat", () => {
+    const input = toCardCreateInput(VALID_INPUT)
+    const first = createCardIdempotent("idempotent-test-repeat", input)
+    const second = createCardIdempotent("idempotent-test-repeat", input)
+
+    expect(second.card.id).toBe(first.card.id)
+    expect(second.number).toBe(first.number)
+    expect(store.cards).toHaveLength(1)
+  })
+
+  it("creates a new card for a different key", () => {
+    const input = toCardCreateInput(VALID_INPUT)
+    createCardIdempotent("idempotent-test-distinct-a", input)
+    createCardIdempotent("idempotent-test-distinct-b", input)
+    expect(store.cards).toHaveLength(2)
+  })
+
+  it("always creates when no key is given", () => {
+    const input = toCardCreateInput(VALID_INPUT)
+    createCardIdempotent(null, input)
+    createCardIdempotent(null, input)
+    expect(store.cards).toHaveLength(2)
   })
 })
 

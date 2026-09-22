@@ -63,7 +63,8 @@ export function validateCardInput(input: {
 
   const merchantId =
     typeof input.merchantId === "string" ? input.merchantId : ""
-  if (!merchantId || !merchantById(merchantId)) {
+  const merchant = merchantId ? merchantById(merchantId) : undefined
+  if (!merchantId || !merchant) {
     return { field: "merchantId", message: "Choose a valid merchant." }
   }
 
@@ -92,6 +93,12 @@ export function validateCardInput(input: {
     return {
       field: "currency",
       message: "Currency must be one of USD, EUR, GBP.",
+    }
+  }
+  if (input.currency !== merchant.currency) {
+    return {
+      field: "currency",
+      message: `Currency must match the merchant's currency (${merchant.currency}).`,
     }
   }
 
@@ -127,6 +134,15 @@ export function toCardCreateInput(input: {
 const pad = (n: number) => String(n).padStart(6, "0")
 
 /**
+ * Keyed by the client's Idempotency-Key header. A retried submit (double
+ * click, a slow response resent) replays the first result instead of
+ * issuing a second card. Process-lifetime only, same as the rest of this
+ * store — not a durability guarantee, just enough to stop a duplicate click
+ * from creating two cards.
+ */
+const idempotencyCache = new Map<string, { card: Card; number: string }>()
+
+/**
  * Generates the number server-side and returns it exactly once, alongside the
  * stored (masked-forever-after) card. Nothing after this call can read the
  * full number again.
@@ -150,6 +166,26 @@ export function createCard(input: CardCreateInput): {
   }
   store.cards.push(card)
   return { card, number }
+}
+
+/**
+ * Same as createCard, but a repeat call with the same idempotency key
+ * returns the original result instead of creating a second card. Pass a
+ * null key to opt out (always creates).
+ */
+export function createCardIdempotent(
+  idempotencyKey: string | null,
+  input: CardCreateInput,
+): { card: Card; number: string } {
+  if (idempotencyKey) {
+    const cached = idempotencyCache.get(idempotencyKey)
+    if (cached) return cached
+  }
+  const result = createCard(input)
+  if (idempotencyKey) {
+    idempotencyCache.set(idempotencyKey, result)
+  }
+  return result
 }
 
 export function listCards(): MaskedCard[] {

@@ -1,5 +1,5 @@
 import {
-  createCard,
+  createCardIdempotent,
   listCards,
   maskCard,
   toCardCreateInput,
@@ -36,7 +36,9 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { card, number } = createCard(
+  const idempotencyKey = request.headers.get("Idempotency-Key")
+  const { card, number } = createCardIdempotent(
+    idempotencyKey,
     toCardCreateInput({
       nickname: input.nickname as string,
       merchantId: input.merchantId as string,

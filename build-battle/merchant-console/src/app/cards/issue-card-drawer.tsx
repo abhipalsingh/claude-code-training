@@ -72,6 +72,9 @@ export function IssueCardDrawer({
   const router = useRouter()
   const fieldId = useId()
 
+  const [idempotencyKey, setIdempotencyKey] = useState(() =>
+    crypto.randomUUID(),
+  )
   const [step, setStep] = useState<Step>("form")
   const [nickname, setNickname] = useState("")
   const [merchantId, setMerchantId] = useState("")
@@ -94,6 +97,9 @@ export function IssueCardDrawer({
     setIsSubmitting(false)
     setReveal(null)
     setCopied(false)
+    // A fresh key for the next card. Retries of *this* submission (a slow
+    // response resent, a double click) reuse the key set below instead.
+    setIdempotencyKey(crypto.randomUUID())
   }
 
   function handleOpenChange(open: boolean) {
@@ -109,8 +115,8 @@ export function IssueCardDrawer({
     setErrors((prev) => ({ ...prev, merchantId: undefined }))
     const merchant = merchants.find((candidate) => candidate.id === id)
     if (merchant) {
-      // Nice-to-have default; the currency select below still lets the
-      // user override it after this.
+      // The server rejects a currency that doesn't match the merchant's, so
+      // the select below locks to this and stops being editable.
       setCurrency(merchant.currency)
     }
   }
@@ -145,7 +151,10 @@ export function IssueCardDrawer({
     try {
       const response = await fetch("/api/cards", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
         body: JSON.stringify({
           nickname: nickname.trim(),
           merchantId,
@@ -298,6 +307,7 @@ export function IssueCardDrawer({
                   </label>
                   <Select
                     value={currency}
+                    disabled={Boolean(merchantId)}
                     onValueChange={(value) => {
                       setCurrency(value as Currency)
                       setErrors((prev) => ({ ...prev, currency: undefined }))
@@ -318,6 +328,11 @@ export function IssueCardDrawer({
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {merchantId
+                      ? "Locked to the selected merchant's currency."
+                      : "Choose a merchant to set this automatically."}
+                  </p>
                   {errors.currency && (
                     <p className="mt-1 text-sm text-red-600 dark:text-red-500">
                       {errors.currency}

@@ -21,10 +21,11 @@ const VALID_BODY = {
   currency: "USD",
 }
 
-function post(body: unknown) {
+function post(body: unknown, headers?: Record<string, string>) {
   return POST(
     new NextRequest("http://localhost/api/cards", {
       method: "POST",
+      headers,
       body: JSON.stringify(body),
     }),
   )
@@ -82,6 +83,39 @@ describe("POST /api/cards", () => {
       }),
     )
     expect(response.status).toBe(400)
+  })
+
+  it("rejects a currency that doesn't match the merchant's currency", async () => {
+    const gbpMerchant = merchants.find((m) => m.currency === "GBP")!
+    const response = await post({
+      ...VALID_BODY,
+      merchantId: gbpMerchant.id,
+      currency: "USD",
+    })
+    expect(response.status).toBe(400)
+    const json = await response.json()
+    expect(json.field).toBe("currency")
+    expect(store.cards).toHaveLength(0)
+  })
+
+  it("replays the same card for a repeated Idempotency-Key instead of creating a second one", async () => {
+    const headers = { "Idempotency-Key": "route-test-repeat-key" }
+    const first = await post(VALID_BODY, headers)
+    const second = await post(VALID_BODY, headers)
+
+    expect(first.status).toBe(201)
+    expect(second.status).toBe(201)
+    const firstJson = await first.json()
+    const secondJson = await second.json()
+    expect(secondJson.card.id).toBe(firstJson.card.id)
+    expect(secondJson.number).toBe(firstJson.number)
+    expect(store.cards).toHaveLength(1)
+  })
+
+  it("creates a separate card when the Idempotency-Key differs", async () => {
+    await post(VALID_BODY, { "Idempotency-Key": "route-test-distinct-a" })
+    await post(VALID_BODY, { "Idempotency-Key": "route-test-distinct-b" })
+    expect(store.cards).toHaveLength(2)
   })
 })
 
