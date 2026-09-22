@@ -28,73 +28,35 @@ const VALID_INPUT = {
 }
 
 describe("validateCardInput", () => {
-  it("accepts valid input", () => {
-    expect(validateCardInput(VALID_INPUT)).toBeNull()
-  })
+  const gbpMerchant = merchants.find((m) => m.currency === "GBP")!
 
-  it("rejects a missing merchant", () => {
-    const error = validateCardInput({ ...VALID_INPUT, merchantId: "" })
-    expect(error?.field).toBe("merchantId")
-  })
-
-  it("rejects an unknown merchant id", () => {
-    const error = validateCardInput({ ...VALID_INPUT, merchantId: "mch_ghost" })
-    expect(error?.field).toBe("merchantId")
-  })
-
-  it("rejects a zero limit", () => {
-    const error = validateCardInput({ ...VALID_INPUT, limitMinorUnits: 0 })
-    expect(error?.field).toBe("limitMinorUnits")
-  })
-
-  it("rejects a negative limit", () => {
-    const error = validateCardInput({ ...VALID_INPUT, limitMinorUnits: -100 })
-    expect(error?.field).toBe("limitMinorUnits")
-  })
-
-  it("rejects a limit above 5,000,000 minor units", () => {
-    const error = validateCardInput({
-      ...VALID_INPUT,
-      limitMinorUnits: 5_000_001,
-    })
-    expect(error?.field).toBe("limitMinorUnits")
-  })
-
-  it("accepts a limit at exactly 5,000,000 minor units", () => {
-    expect(
-      validateCardInput({ ...VALID_INPUT, limitMinorUnits: 5_000_000 }),
-    ).toBeNull()
-  })
-
-  it("rejects a currency outside USD/EUR/GBP", () => {
-    const error = validateCardInput({ ...VALID_INPUT, currency: "JPY" })
-    expect(error?.field).toBe("currency")
-  })
-
-  it("rejects a blank nickname", () => {
-    const error = validateCardInput({ ...VALID_INPUT, nickname: "   " })
-    expect(error?.field).toBe("nickname")
-  })
-
-  it("rejects a currency that doesn't match the merchant's currency", () => {
-    const gbpMerchant = merchants.find((m) => m.currency === "GBP")!
-    const error = validateCardInput({
-      ...VALID_INPUT,
-      merchantId: gbpMerchant.id,
-      currency: "USD",
-    })
-    expect(error?.field).toBe("currency")
-  })
-
-  it("accepts a currency that matches the merchant's currency", () => {
-    const gbpMerchant = merchants.find((m) => m.currency === "GBP")!
-    expect(
-      validateCardInput({
-        ...VALID_INPUT,
-        merchantId: gbpMerchant.id,
-        currency: "GBP",
-      }),
-    ).toBeNull()
+  it.each<[string, Record<string, unknown>, string | null]>([
+    ["valid input", {}, null],
+    ["a missing merchant", { merchantId: "" }, "merchantId"],
+    ["an unknown merchant id", { merchantId: "mch_ghost" }, "merchantId"],
+    ["a zero limit", { limitMinorUnits: 0 }, "limitMinorUnits"],
+    ["a negative limit", { limitMinorUnits: -100 }, "limitMinorUnits"],
+    [
+      "a limit above 5,000,000 minor units",
+      { limitMinorUnits: 5_000_001 },
+      "limitMinorUnits",
+    ],
+    ["a limit at exactly 5,000,000 minor units", { limitMinorUnits: 5_000_000 }, null],
+    ["a currency outside USD/EUR/GBP", { currency: "JPY" }, "currency"],
+    ["a blank nickname", { nickname: "   " }, "nickname"],
+    [
+      "a currency that doesn't match the merchant's currency",
+      { merchantId: gbpMerchant.id, currency: "USD" },
+      "currency",
+    ],
+    [
+      "a currency that matches the merchant's currency",
+      { merchantId: gbpMerchant.id, currency: "GBP" },
+      null,
+    ],
+  ])("handles %s", (_case, overrides, expectedField) => {
+    const error = validateCardInput({ ...VALID_INPUT, ...overrides })
+    expect(error?.field ?? null).toBe(expectedField)
   })
 })
 

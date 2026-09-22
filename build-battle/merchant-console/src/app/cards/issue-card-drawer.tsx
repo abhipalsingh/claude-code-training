@@ -28,20 +28,14 @@ import { useRouter } from "next/navigation"
 import { useId, useState } from "react"
 
 const CURRENCIES: Currency[] = ["USD", "EUR", "GBP"]
-
 /** Same server-enforced ceiling, mirrored here as a convenience check only. */
 const MAX_LIMIT_MINOR_UNITS = 5_000_000
 
 type Step = "form" | "reveal"
-
 type FieldErrors = Partial<
   Record<"nickname" | "merchantId" | "limit" | "currency" | "form", string>
 >
-
-type RevealData = {
-  card: MaskedCard
-  number: string
-}
+type RevealData = { card: MaskedCard; number: string }
 
 /** Maps the server's `{ field }` (request-body key) onto our local error keys. */
 function mapServerField(field: string | undefined): keyof FieldErrors {
@@ -49,11 +43,9 @@ function mapServerField(field: string | undefined): keyof FieldErrors {
     case "limitMinorUnits":
       return "limit"
     case "merchantId":
-      return "merchantId"
     case "nickname":
-      return "nickname"
     case "currency":
-      return "currency"
+      return field
     default:
       return "form"
   }
@@ -62,6 +54,38 @@ function mapServerField(field: string | undefined): keyof FieldErrors {
 /** Groups a 16-digit PAN into "4242 4242 4242 4242" for readability. */
 function formatForDisplay(number: string): string {
   return number.replace(/(\d{4})(?=\d)/g, "$1 ")
+}
+
+/** Label + control + helper/error, shared across every field below. */
+function Field({
+  label,
+  htmlFor,
+  error,
+  helper,
+  children,
+}: {
+  label: React.ReactNode
+  htmlFor: string
+  error?: string
+  helper?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <label
+        htmlFor={htmlFor}
+        className="text-sm font-medium text-gray-900 dark:text-gray-50"
+      >
+        {label}
+      </label>
+      <div className="mt-1">{children}</div>
+      {error ? (
+        <p className="mt-1 text-sm text-red-600 dark:text-red-500">{error}</p>
+      ) : helper ? (
+        <p className="mt-1 text-sm text-gray-500">{helper}</p>
+      ) : null}
+    </div>
+  )
 }
 
 export function IssueCardDrawer({
@@ -86,6 +110,10 @@ export function IssueCardDrawer({
   const [reveal, setReveal] = useState<RevealData | null>(null)
   const [copied, setCopied] = useState(false)
 
+  function clearError(field: keyof FieldErrors) {
+    setErrors((prev) => ({ ...prev, [field]: undefined }))
+  }
+
   function resetState() {
     setStep("form")
     setNickname("")
@@ -103,34 +131,26 @@ export function IssueCardDrawer({
   }
 
   function handleOpenChange(open: boolean) {
-    if (!open) {
-      // Drawer is closed: drop any trace of the one-time reveal state along
-      // with the rest of the form. Nothing from `reveal` may outlive this.
-      resetState()
-    }
+    // Drawer closed: drop the one-time reveal state along with the rest of
+    // the form. Nothing from `reveal` may outlive this.
+    if (!open) resetState()
   }
 
   function handleMerchantChange(id: string) {
     setMerchantId(id)
-    setErrors((prev) => ({ ...prev, merchantId: undefined }))
+    clearError("merchantId")
+    // The server rejects a currency that doesn't match the merchant's, so
+    // the select below locks to this and stops being editable.
     const merchant = merchants.find((candidate) => candidate.id === id)
-    if (merchant) {
-      // The server rejects a currency that doesn't match the merchant's, so
-      // the select below locks to this and stops being editable.
-      setCurrency(merchant.currency)
-    }
+    if (merchant) setCurrency(merchant.currency)
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     const nextErrors: FieldErrors = {}
-    if (!nickname.trim()) {
-      nextErrors.nickname = "Nickname is required."
-    }
-    if (!merchantId) {
-      nextErrors.merchantId = "Select a merchant."
-    }
+    if (!nickname.trim()) nextErrors.nickname = "Nickname is required."
+    if (!merchantId) nextErrors.merchantId = "Select a merchant."
 
     const minorUnits = parseAmountToMinorUnits(limitInput)
     if (minorUnits === null) {
@@ -163,7 +183,6 @@ export function IssueCardDrawer({
           category: category || null,
         }),
       })
-
       const data = await response.json()
 
       if (!response.ok) {
@@ -212,43 +231,32 @@ export function IssueCardDrawer({
                 onSubmit={handleSubmit}
                 className="flex flex-col gap-4"
               >
-                <div>
-                  <label
-                    htmlFor={`${fieldId}-nickname`}
-                    className="text-sm font-medium text-gray-900 dark:text-gray-50"
-                  >
-                    Nickname
-                  </label>
+                <Field
+                  label="Nickname"
+                  htmlFor={`${fieldId}-nickname`}
+                  error={errors.nickname}
+                >
                   <Input
                     id={`${fieldId}-nickname`}
-                    className="mt-1"
                     value={nickname}
                     onChange={(event) => {
                       setNickname(event.target.value)
-                      setErrors((prev) => ({ ...prev, nickname: undefined }))
+                      clearError("nickname")
                     }}
                     placeholder="e.g. Contractor tools"
                     required
                     hasError={Boolean(errors.nickname)}
                   />
-                  {errors.nickname && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-500">
-                      {errors.nickname}
-                    </p>
-                  )}
-                </div>
+                </Field>
 
-                <div>
-                  <label
-                    htmlFor={`${fieldId}-merchant`}
-                    className="text-sm font-medium text-gray-900 dark:text-gray-50"
-                  >
-                    Merchant
-                  </label>
+                <Field
+                  label="Merchant"
+                  htmlFor={`${fieldId}-merchant`}
+                  error={errors.merchantId}
+                >
                   <Select value={merchantId} onValueChange={handleMerchantChange}>
                     <SelectTrigger
                       id={`${fieldId}-merchant`}
-                      className="mt-1"
                       hasError={Boolean(errors.merchantId)}
                     >
                       <SelectValue placeholder="Select a merchant" />
@@ -261,61 +269,48 @@ export function IssueCardDrawer({
                       ))}
                     </SelectContent>
                   </Select>
-                  {errors.merchantId && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-500">
-                      {errors.merchantId}
-                    </p>
-                  )}
-                </div>
+                </Field>
 
-                <div>
-                  <label
-                    htmlFor={`${fieldId}-limit`}
-                    className="text-sm font-medium text-gray-900 dark:text-gray-50"
-                  >
-                    Spend limit
-                  </label>
+                <Field
+                  label="Spend limit"
+                  htmlFor={`${fieldId}-limit`}
+                  error={errors.limit}
+                  helper={`Whole or decimal amount in ${currency}, e.g. 250 or 250.00.`}
+                >
                   <Input
                     id={`${fieldId}-limit`}
-                    className="mt-1"
                     inputMode="decimal"
                     value={limitInput}
                     onChange={(event) => {
                       setLimitInput(event.target.value)
-                      setErrors((prev) => ({ ...prev, limit: undefined }))
+                      clearError("limit")
                     }}
                     placeholder="250.00"
                     required
                     hasError={Boolean(errors.limit)}
                   />
-                  <p className="mt-1 text-sm text-gray-500">
-                    Whole or decimal amount in {currency}, e.g. 250 or 250.00.
-                  </p>
-                  {errors.limit && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-500">
-                      {errors.limit}
-                    </p>
-                  )}
-                </div>
+                </Field>
 
-                <div>
-                  <label
-                    htmlFor={`${fieldId}-currency`}
-                    className="text-sm font-medium text-gray-900 dark:text-gray-50"
-                  >
-                    Currency
-                  </label>
+                <Field
+                  label="Currency"
+                  htmlFor={`${fieldId}-currency`}
+                  error={errors.currency}
+                  helper={
+                    merchantId
+                      ? "Locked to the selected merchant's currency."
+                      : "Choose a merchant to set this automatically."
+                  }
+                >
                   <Select
                     value={currency}
                     disabled={Boolean(merchantId)}
                     onValueChange={(value) => {
                       setCurrency(value as Currency)
-                      setErrors((prev) => ({ ...prev, currency: undefined }))
+                      clearError("currency")
                     }}
                   >
                     <SelectTrigger
                       id={`${fieldId}-currency`}
-                      className="mt-1"
                       hasError={Boolean(errors.currency)}
                     >
                       <SelectValue placeholder="Currency" />
@@ -328,35 +323,25 @@ export function IssueCardDrawer({
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {merchantId
-                      ? "Locked to the selected merchant's currency."
-                      : "Choose a merchant to set this automatically."}
-                  </p>
-                  {errors.currency && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-500">
-                      {errors.currency}
-                    </p>
-                  )}
-                </div>
+                </Field>
 
-                <div>
-                  <label
-                    htmlFor={`${fieldId}-category`}
-                    className="text-sm font-medium text-gray-900 dark:text-gray-50"
-                  >
-                    Category{" "}
-                    <span className="font-normal text-gray-500">
-                      (optional)
-                    </span>
-                  </label>
+                <Field
+                  label={
+                    <>
+                      Category{" "}
+                      <span className="font-normal text-gray-500">
+                        (optional)
+                      </span>
+                    </>
+                  }
+                  htmlFor={`${fieldId}-category`}
+                  helper="Locks the card to this spending category. Cannot be changed after issue."
+                >
                   <Select
                     value={category}
-                    onValueChange={(value) =>
-                      setCategory(value as CardCategory)
-                    }
+                    onValueChange={(value) => setCategory(value as CardCategory)}
                   >
-                    <SelectTrigger id={`${fieldId}-category`} className="mt-1">
+                    <SelectTrigger id={`${fieldId}-category`}>
                       <SelectValue placeholder="No category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -367,11 +352,7 @@ export function IssueCardDrawer({
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Locks the card to this spending category. Cannot be
-                    changed after issue.
-                  </p>
-                </div>
+                </Field>
 
                 {errors.form && (
                   <>
@@ -402,9 +383,7 @@ export function IssueCardDrawer({
           <>
             <DrawerHeader>
               <DrawerTitle>Card issued</DrawerTitle>
-              <DrawerDescription>
-                {reveal?.card.nickname}
-              </DrawerDescription>
+              <DrawerDescription>{reveal?.card.nickname}</DrawerDescription>
             </DrawerHeader>
             <DrawerBody>
               <div className="flex flex-col gap-4">
@@ -414,10 +393,7 @@ export function IssueCardDrawer({
                 </p>
 
                 <div className="rounded-md border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900">
-                  <p
-                    className="font-mono text-lg tracking-wider text-gray-900 dark:text-gray-50"
-                    data-testid="card-number-reveal"
-                  >
+                  <p className="font-mono text-lg tracking-wider text-gray-900 dark:text-gray-50">
                     {reveal ? formatForDisplay(reveal.number) : ""}
                   </p>
                 </div>
@@ -436,12 +412,8 @@ export function IssueCardDrawer({
                 <dl className="grid grid-cols-2 gap-y-3 text-sm">
                   <dt className="text-gray-500">Spend limit</dt>
                   <dd className="text-gray-900 dark:text-gray-50">
-                    {reveal
-                      ? formatMoney(
-                          reveal.card.limitMinorUnits,
-                          reveal.card.currency,
-                        )
-                      : ""}
+                    {reveal &&
+                      formatMoney(reveal.card.limitMinorUnits, reveal.card.currency)}
                   </dd>
                   <dt className="text-gray-500">Currency</dt>
                   <dd className="text-gray-900 dark:text-gray-50">

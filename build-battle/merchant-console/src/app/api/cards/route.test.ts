@@ -55,24 +55,20 @@ describe("POST /api/cards", () => {
     expect(store.cards).toHaveLength(0)
   })
 
-  it("rejects a zero limit", async () => {
-    const response = await post({ ...VALID_BODY, limitMinorUnits: 0 })
+  const gbpMerchant = merchants.find((m) => m.currency === "GBP")!
+  it.each<[string, Record<string, unknown>]>([
+    ["a zero limit", { limitMinorUnits: 0 }],
+    ["a negative limit", { limitMinorUnits: -500 }],
+    ["a limit above 5,000,000 minor units", { limitMinorUnits: 5_000_001 }],
+    ["a currency outside USD/EUR/GBP", { currency: "JPY" }],
+    [
+      "a currency that doesn't match the merchant's currency",
+      { merchantId: gbpMerchant.id, currency: "USD" },
+    ],
+  ])("rejects %s with a 400 and creates nothing", async (_case, overrides) => {
+    const response = await post({ ...VALID_BODY, ...overrides })
     expect(response.status).toBe(400)
-  })
-
-  it("rejects a negative limit", async () => {
-    const response = await post({ ...VALID_BODY, limitMinorUnits: -500 })
-    expect(response.status).toBe(400)
-  })
-
-  it("rejects a limit above 5,000,000 minor units", async () => {
-    const response = await post({ ...VALID_BODY, limitMinorUnits: 5_000_001 })
-    expect(response.status).toBe(400)
-  })
-
-  it("rejects a currency outside USD/EUR/GBP", async () => {
-    const response = await post({ ...VALID_BODY, currency: "JPY" })
-    expect(response.status).toBe(400)
+    expect(store.cards).toHaveLength(0)
   })
 
   it("rejects a malformed body", async () => {
@@ -83,19 +79,6 @@ describe("POST /api/cards", () => {
       }),
     )
     expect(response.status).toBe(400)
-  })
-
-  it("rejects a currency that doesn't match the merchant's currency", async () => {
-    const gbpMerchant = merchants.find((m) => m.currency === "GBP")!
-    const response = await post({
-      ...VALID_BODY,
-      merchantId: gbpMerchant.id,
-      currency: "USD",
-    })
-    expect(response.status).toBe(400)
-    const json = await response.json()
-    expect(json.field).toBe("currency")
-    expect(store.cards).toHaveLength(0)
   })
 
   it("replays the same card for a repeated Idempotency-Key instead of creating a second one", async () => {

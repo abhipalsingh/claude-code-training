@@ -44,10 +44,7 @@ interface ValidationError {
   message: string
 }
 
-/**
- * Anything from the client is checked against an allowlist before it reaches
- * the store. Route handlers call this rather than trusting the request body.
- */
+/** Anything from the client is checked against an allowlist before it reaches the store. */
 export function validateCardInput(input: {
   nickname?: unknown
   merchantId?: unknown
@@ -133,20 +130,10 @@ export function toCardCreateInput(input: {
 
 const pad = (n: number) => String(n).padStart(6, "0")
 
-/**
- * Keyed by the client's Idempotency-Key header. A retried submit (double
- * click, a slow response resent) replays the first result instead of
- * issuing a second card. Process-lifetime only, same as the rest of this
- * store — not a durability guarantee, just enough to stop a duplicate click
- * from creating two cards.
- */
+/** Keyed by the client's Idempotency-Key header; process-lifetime only, same as the rest of this store. */
 const idempotencyCache = new Map<string, { card: Card; number: string }>()
 
-/**
- * Generates the number server-side and returns it exactly once, alongside the
- * stored (masked-forever-after) card. Nothing after this call can read the
- * full number again.
- */
+/** Generates the number server-side and returns it exactly once; every other read is masked. */
 export function createCard(input: CardCreateInput): {
   card: Card
   number: string
@@ -168,11 +155,7 @@ export function createCard(input: CardCreateInput): {
   return { card, number }
 }
 
-/**
- * Same as createCard, but a repeat call with the same idempotency key
- * returns the original result instead of creating a second card. Pass a
- * null key to opt out (always creates).
- */
+/** Same as createCard, but a repeat call with the same key replays the original result. Null key opts out. */
 export function createCardIdempotent(
   idempotencyKey: string | null,
   input: CardCreateInput,
