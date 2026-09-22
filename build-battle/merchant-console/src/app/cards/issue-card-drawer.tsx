@@ -21,15 +21,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/Select"
-import { CATEGORIES, humanizeCategory, type MaskedCard } from "@/data/cards"
+import {
+  CATEGORIES,
+  MAX_LIMIT_MINOR_UNITS,
+  humanizeCategory,
+  type MaskedCard,
+} from "@/data/cards"
 import { CardCategory, Currency } from "@/data/types"
 import { formatMoney, parseAmountToMinorUnits } from "@/lib/money"
 import { useRouter } from "next/navigation"
 import { useId, useState } from "react"
 
 const CURRENCIES: Currency[] = ["USD", "EUR", "GBP"]
-/** Same server-enforced ceiling, mirrored here as a convenience check only. */
-const MAX_LIMIT_MINOR_UNITS = 5_000_000
 
 type Step = "form" | "reveal"
 type FieldErrors = Partial<
