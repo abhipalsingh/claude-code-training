@@ -4,11 +4,7 @@ import { store } from "@/data/store"
 import { merchants } from "@/data/merchants"
 import { GET, POST } from "./route"
 
-/**
- * Exercises the route handlers directly, the same way Next would call them,
- * without needing a running dev server — a stand-in for the curl checks the
- * spec calls for in an environment where a live server isn't available.
- */
+/** Exercises the route handlers directly, without needing a running dev server. */
 
 beforeEach(() => {
   store.cards.length = 0
@@ -56,16 +52,14 @@ describe("POST /api/cards", () => {
   })
 
   const gbpMerchant = merchants.find((m) => m.currency === "GBP")!
-  it.each<[string, Record<string, unknown>]>([
+  const REJECTIONS: [string, Record<string, unknown>][] = [
     ["a zero limit", { limitMinorUnits: 0 }],
     ["a negative limit", { limitMinorUnits: -500 }],
     ["a limit above 5,000,000 minor units", { limitMinorUnits: 5_000_001 }],
     ["a currency outside USD/EUR/GBP", { currency: "JPY" }],
-    [
-      "a currency that doesn't match the merchant's currency",
-      { merchantId: gbpMerchant.id, currency: "USD" },
-    ],
-  ])("rejects %s with a 400 and creates nothing", async (_case, overrides) => {
+    ["a currency not matching the merchant's", { merchantId: gbpMerchant.id, currency: "USD" }],
+  ]
+  it.each(REJECTIONS)("rejects %s with a 400 and creates nothing", async (_case, overrides) => {
     const response = await post({ ...VALID_BODY, ...overrides })
     expect(response.status).toBe(400)
     expect(store.cards).toHaveLength(0)
