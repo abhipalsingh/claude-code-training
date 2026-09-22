@@ -8,9 +8,11 @@ import { useState } from "react"
 /** Freeze/unfreeze toggle for one card row; renders nothing once cancelled (terminal). */
 export function CardStatusAction({
   cardId,
+  nickname,
   status,
 }: {
   cardId: string
+  nickname: string
   status: CardStatus
 }) {
   const router = useRouter()
@@ -56,6 +58,7 @@ export function CardStatusAction({
         className="py-1 text-xs"
         disabled={isSubmitting}
         onClick={handleClick}
+        aria-label={`${label} ${nickname}`}
       >
         {isSubmitting ? "Updating..." : label}
       </Button>

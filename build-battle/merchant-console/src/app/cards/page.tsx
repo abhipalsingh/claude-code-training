@@ -89,6 +89,7 @@ export default async function CardsPage() {
                       <StatusBadge status={card.status} />
                       <CardStatusAction
                         cardId={card.id}
+                        nickname={card.nickname}
                         status={card.status}
                       />
                     </div>
