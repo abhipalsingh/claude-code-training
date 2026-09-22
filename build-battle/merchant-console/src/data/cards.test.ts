@@ -98,7 +98,7 @@ describe("createCardIdempotent", () => {
     try {
       const input = toCardCreateInput(VALID_INPUT)
       const first = createCardIdempotent("idempotent-test-ttl", input)
-      vi.advanceTimersByTime(6 * 60 * 1000) // past the 5-minute TTL
+      vi.advanceTimersByTime(90 * 1000) // past the 60-second TTL
       const second = createCardIdempotent("idempotent-test-ttl", input)
 
       expect(second.card.id).not.toBe(first.card.id)

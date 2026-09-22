@@ -125,8 +125,8 @@ export function toCardCreateInput(input: {
 
 const pad = (n: number) => String(n).padStart(6, "0")
 
-/** How long a submission's result is remembered. Bounds how long a full PAN sits in this cache. */
-const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000
+/** Long enough to absorb a double-click or one retried request; short enough to bound how long the full PAN sits here. */
+const IDEMPOTENCY_TTL_MS = 60 * 1000
 
 interface IdempotencyEntry {
   result: { card: Card; number: string }
