@@ -12,10 +12,7 @@ export function GET() {
   return NextResponse.json({ cards: listCards() })
 }
 
-/**
- * Issues a card. This is the one response in the system that carries the
- * full number — every other read of this card is masked.
- */
+/** Issues a card. This is the one response in the system that carries the full number. */
 export async function POST(request: NextRequest) {
   let body: unknown
   try {
