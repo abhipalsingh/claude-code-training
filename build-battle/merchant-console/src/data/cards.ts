@@ -1,3 +1,4 @@
+import { createCipheriv, createDecipheriv, randomBytes } from "crypto"
 import { generateCardNumber } from "@/lib/luhn"
 import { merchantById } from "./merchants"
 import { store } from "./store"
@@ -128,8 +129,32 @@ const pad = (n: number) => String(n).padStart(6, "0")
 /** Long enough to absorb a double-click or one retried request; short enough to bound how long the full PAN sits here. */
 const IDEMPOTENCY_TTL_MS = 60 * 1000
 
+/**
+ * A retry has to get back the identical response, PAN included, so the cache
+ * can't avoid holding it for the TTL window. It doesn't have to hold it as
+ * plaintext, though: encrypt at rest with a key that only lives in this
+ * process's memory for this process's lifetime, so nothing that inspects the
+ * cache map directly (a heap dump, a debugger, a logging library that stringifies
+ * unknown objects) sees a card-shaped number, only ciphertext.
+ */
+const idempotencyCacheKey = randomBytes(32)
+
+function encryptNumber(number: string): { iv: Buffer; ciphertext: Buffer; authTag: Buffer } {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv("aes-256-gcm", idempotencyCacheKey, iv)
+  const ciphertext = Buffer.concat([cipher.update(number, "utf8"), cipher.final()])
+  return { iv, ciphertext, authTag: cipher.getAuthTag() }
+}
+
+function decryptNumber(sealed: { iv: Buffer; ciphertext: Buffer; authTag: Buffer }): string {
+  const decipher = createDecipheriv("aes-256-gcm", idempotencyCacheKey, sealed.iv)
+  decipher.setAuthTag(sealed.authTag)
+  return Buffer.concat([decipher.update(sealed.ciphertext), decipher.final()]).toString("utf8")
+}
+
 interface IdempotencyEntry {
-  result: { card: Card; number: string }
+  card: Card
+  sealedNumber: { iv: Buffer; ciphertext: Buffer; authTag: Buffer }
   expiresAt: number
 }
 
@@ -176,12 +201,15 @@ export function createCardIdempotent(
 
   if (idempotencyKey) {
     const cached = idempotencyCache.get(idempotencyKey)
-    if (cached) return cached.result
+    if (cached) {
+      return { card: cached.card, number: decryptNumber(cached.sealedNumber) }
+    }
   }
   const result = createCard(input)
   if (idempotencyKey) {
     idempotencyCache.set(idempotencyKey, {
-      result,
+      card: result.card,
+      sealedNumber: encryptNumber(result.number),
       expiresAt: now + IDEMPOTENCY_TTL_MS,
     })
   }
