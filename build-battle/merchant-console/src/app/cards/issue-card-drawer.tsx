@@ -139,6 +139,7 @@ export function IssueCardDrawer({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [reveal, setReveal] = useState<RevealData | null>(null)
   const [copied, setCopied] = useState(false)
+  const [copyFailed, setCopyFailed] = useState(false)
 
   function clearError(field: keyof FieldErrors) {
     setErrors((prev) => ({ ...prev, [field]: undefined }))
@@ -155,6 +156,7 @@ export function IssueCardDrawer({
     setIsSubmitting(false)
     setReveal(null)
     setCopied(false)
+    setCopyFailed(false)
     // A fresh key for the next card. Retries of *this* submission (a slow
     // response resent, a double click) reuse the key set below instead.
     setIdempotencyKey(crypto.randomUUID())
@@ -235,9 +237,14 @@ export function IssueCardDrawer({
 
   async function handleCopy() {
     if (!reveal) return
-    await navigator.clipboard.writeText(reveal.number)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(reveal.number)
+      setCopied(true)
+      setCopyFailed(false)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopyFailed(true)
+    }
   }
 
   return (
@@ -400,6 +407,12 @@ export function IssueCardDrawer({
                 >
                   {copied ? "Copied" : "Copy"}
                 </Button>
+                {copyFailed && (
+                  <p className="text-sm text-red-600 dark:text-red-500">
+                    Couldn&apos;t copy automatically — select the number above
+                    and copy it manually.
+                  </p>
+                )}
 
                 <Divider />
 
