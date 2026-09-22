@@ -13,6 +13,7 @@ import { merchantById, merchants } from "@/data/merchants"
 import { formatDate } from "@/lib/dates"
 import { formatMoney } from "@/lib/money"
 import Link from "next/link"
+import { CardStatusAction } from "./card-status-action"
 import { IssueCardDrawer } from "./issue-card-drawer"
 
 export default async function CardsPage() {
@@ -84,7 +85,13 @@ export default async function CardsPage() {
                     {formatMoney(card.limitMinorUnits, card.currency)}
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={card.status} />
+                    <div className="flex flex-col items-start gap-1.5">
+                      <StatusBadge status={card.status} />
+                      <CardStatusAction
+                        cardId={card.id}
+                        status={card.status}
+                      />
+                    </div>
                   </TableCell>
                   <TableCell>{formatDate(card.createdAt)}</TableCell>
                 </TableRow>

@@ -25,6 +25,12 @@ export const CARD_STATUSES: readonly CardStatus[] = [
 
 export const MAX_LIMIT_MINOR_UNITS = 5_000_000
 
+/** "vendor_subscriptions" -> "Vendor subscriptions". Shared so the drawer and the detail page agree. */
+export function humanizeCategory(category: CardCategory): string {
+  const [first, ...rest] = category.split("_")
+  return [first.charAt(0).toUpperCase() + first.slice(1), ...rest].join(" ")
+}
+
 /** The full number never appears on this shape. Everywhere but the creation response, cards are masked. */
 export type MaskedCard = Omit<Card, "last4"> & { maskedNumber: string }
 

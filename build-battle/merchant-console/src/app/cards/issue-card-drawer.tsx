@@ -21,8 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/Select"
-import type { MaskedCard } from "@/data/cards"
-import { Currency } from "@/data/types"
+import { CATEGORIES, humanizeCategory, type MaskedCard } from "@/data/cards"
+import { CardCategory, Currency } from "@/data/types"
 import { formatMoney, parseAmountToMinorUnits } from "@/lib/money"
 import { useRouter } from "next/navigation"
 import { useId, useState } from "react"
@@ -77,6 +77,7 @@ export function IssueCardDrawer({
   const [merchantId, setMerchantId] = useState("")
   const [limitInput, setLimitInput] = useState("")
   const [currency, setCurrency] = useState<Currency>("USD")
+  const [category, setCategory] = useState<CardCategory | "">("")
   const [errors, setErrors] = useState<FieldErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [reveal, setReveal] = useState<RevealData | null>(null)
@@ -88,6 +89,7 @@ export function IssueCardDrawer({
     setMerchantId("")
     setLimitInput("")
     setCurrency("USD")
+    setCategory("")
     setErrors({})
     setIsSubmitting(false)
     setReveal(null)
@@ -149,6 +151,7 @@ export function IssueCardDrawer({
           merchantId,
           limitMinorUnits: minorUnits,
           currency,
+          category: category || null,
         }),
       })
 
@@ -322,6 +325,39 @@ export function IssueCardDrawer({
                   )}
                 </div>
 
+                <div>
+                  <label
+                    htmlFor={`${fieldId}-category`}
+                    className="text-sm font-medium text-gray-900 dark:text-gray-50"
+                  >
+                    Category{" "}
+                    <span className="font-normal text-gray-500">
+                      (optional)
+                    </span>
+                  </label>
+                  <Select
+                    value={category}
+                    onValueChange={(value) =>
+                      setCategory(value as CardCategory)
+                    }
+                  >
+                    <SelectTrigger id={`${fieldId}-category`} className="mt-1">
+                      <SelectValue placeholder="No category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {humanizeCategory(value)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Locks the card to this spending category. Cannot be
+                    changed after issue.
+                  </p>
+                </div>
+
                 {errors.form && (
                   <>
                     <Divider />
@@ -396,6 +432,14 @@ export function IssueCardDrawer({
                   <dd className="text-gray-900 dark:text-gray-50">
                     {reveal?.card.currency}
                   </dd>
+                  {reveal?.card.category && (
+                    <>
+                      <dt className="text-gray-500">Category</dt>
+                      <dd className="text-gray-900 dark:text-gray-50">
+                        {humanizeCategory(reveal.card.category)}
+                      </dd>
+                    </>
+                  )}
                 </dl>
               </div>
             </DrawerBody>

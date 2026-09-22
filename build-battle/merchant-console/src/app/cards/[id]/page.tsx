@@ -1,6 +1,7 @@
 import { Divider } from "@/components/Divider"
+import { SpendProgress } from "@/components/ui/cards/SpendProgress"
 import { StatusBadge } from "@/components/ui/payments/StatusBadge"
-import { maskedCardById } from "@/data/cards"
+import { humanizeCategory, maskedCardById } from "@/data/cards"
 import { merchantById } from "@/data/merchants"
 import { formatInZone } from "@/lib/dates"
 import { formatMoney } from "@/lib/money"
@@ -47,8 +48,12 @@ export default async function CardDetail({
         <Field label="Spend limit">
           {formatMoney(card.limitMinorUnits, card.currency)}
         </Field>
-        <Field label="Spend against limit">
-          {formatMoney(card.spentMinorUnits, card.currency)}
+        <Field label="Spend against limit" className="sm:col-span-2 lg:col-span-3">
+          <SpendProgress
+            spentMinorUnits={card.spentMinorUnits}
+            limitMinorUnits={card.limitMinorUnits}
+            currency={card.currency}
+          />
         </Field>
         <Field label="Category">
           {card.category ? humanizeCategory(card.category) : "—"}
@@ -64,20 +69,17 @@ export default async function CardDetail({
   )
 }
 
-function humanizeCategory(category: string): string {
-  const words = category.split("_")
-  return [words[0].charAt(0).toUpperCase() + words[0].slice(1), ...words.slice(1)].join(" ")
-}
-
 function Field({
   label,
   children,
+  className,
 }: {
   label: string
   children: React.ReactNode
+  className?: string
 }) {
   return (
-    <div>
+    <div className={className}>
       <dt className="text-sm text-gray-500">{label}</dt>
       <dd className="mt-1 text-sm text-gray-900 dark:text-gray-50">{children}</dd>
     </div>
