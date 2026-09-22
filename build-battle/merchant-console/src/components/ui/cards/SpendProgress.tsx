@@ -26,6 +26,7 @@ export function SpendProgress({
         aria-valuenow={Math.round(percent)}
         aria-valuemin={0}
         aria-valuemax={100}
+        aria-valuetext={`${formatMoney(spentMinorUnits, currency)} of ${formatMoney(limitMinorUnits, currency)}`}
         aria-label="Spend against limit"
         className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800"
       >
