@@ -148,6 +148,7 @@ export function createCard(input: CardCreateInput): {
   number: string
 } {
   const number = generateCardNumber()
+  const createdAt = new Date().toISOString()
   const card: Card = {
     id: `card_${pad(store.cards.length + 1)}`,
     nickname: input.nickname,
@@ -158,7 +159,8 @@ export function createCard(input: CardCreateInput): {
     currency: input.currency,
     status: "active",
     category: input.category ?? null,
-    createdAt: new Date().toISOString(),
+    createdAt,
+    statusHistory: [{ status: "active", at: createdAt }],
   }
   store.cards.push(card)
   return { card, number }
@@ -224,5 +226,6 @@ export function transitionCardStatus(
     return { error: `A ${card.status} card cannot move to ${to}.` }
   }
   card.status = to
+  card.statusHistory.push({ status: to, at: new Date().toISOString() })
   return { card: maskCard(card) }
 }

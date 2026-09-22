@@ -65,6 +65,30 @@ export default async function CardDetail({
           {formatInZone(card.createdAt, merchant.timezone)}
         </Field>
       </dl>
+
+      <Divider />
+
+      <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-50">
+        Status history
+      </h2>
+      <ol className="mt-4 space-y-4">
+        {card.statusHistory.map((event, index) => (
+          <li key={index} className="flex gap-3">
+            <span
+              className="mt-1.5 size-2 shrink-0 rounded-full bg-blue-500"
+              aria-hidden="true"
+            />
+            <div>
+              <p className="text-sm capitalize text-gray-900 dark:text-gray-50">
+                {event.status}
+              </p>
+              <p className="text-sm text-gray-500">
+                {formatInZone(event.at, merchant.timezone)}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ol>
     </div>
   )
 }

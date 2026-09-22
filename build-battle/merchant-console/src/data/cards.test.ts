@@ -141,4 +141,14 @@ describe("card status transitions", () => {
     const result = transitionCardStatus("card_ghost", "frozen")
     expect("error" in result).toBe(true)
   })
+
+  it("records every transition in order, including the illegal one it rejected", () => {
+    const { card } = createCard(toCardCreateInput(VALID_INPUT))
+    transitionCardStatus(card.id, "frozen")
+    transitionCardStatus(card.id, "cancelled")
+    transitionCardStatus(card.id, "active") // rejected; must not appear below
+
+    const statuses = cardById(card.id)!.statusHistory.map((e) => e.status)
+    expect(statuses).toEqual(["active", "frozen", "cancelled"])
+  })
 })

@@ -78,6 +78,12 @@ export interface Payout {
   paymentIds: string[]
 }
 
+export interface CardStatusEvent {
+  status: CardStatus
+  /** ISO 8601, always UTC. */
+  at: string
+}
+
 export interface Card {
   id: string
   nickname: string
@@ -93,6 +99,8 @@ export interface Card {
   category: CardCategory | null
   /** ISO 8601, always UTC. */
   createdAt: string
+  /** Every status this card has held, oldest first. Starts with "active" at creation. */
+  statusHistory: CardStatusEvent[]
 }
 
 export interface CardCreateInput {
