@@ -54,9 +54,7 @@ export function validateCardInput(input: {
 }): ValidationError | null {
   const nickname =
     typeof input.nickname === "string" ? input.nickname.trim() : ""
-  if (!nickname) {
-    return { field: "nickname", message: "Nickname is required." }
-  }
+  if (!nickname) return { field: "nickname", message: "Nickname is required." }
 
   const merchantId =
     typeof input.merchantId === "string" ? input.merchantId : ""
@@ -87,10 +85,7 @@ export function validateCardInput(input: {
     typeof input.currency !== "string" ||
     !CURRENCIES.includes(input.currency as Currency)
   ) {
-    return {
-      field: "currency",
-      message: "Currency must be one of USD, EUR, GBP.",
-    }
+    return { field: "currency", message: "Currency must be one of USD, EUR, GBP." }
   }
   if (input.currency !== merchant.currency) {
     return {
@@ -130,8 +125,22 @@ export function toCardCreateInput(input: {
 
 const pad = (n: number) => String(n).padStart(6, "0")
 
-/** Keyed by the client's Idempotency-Key header; process-lifetime only, same as the rest of this store. */
-const idempotencyCache = new Map<string, { card: Card; number: string }>()
+/** How long a submission's result is remembered. Bounds how long a full PAN sits in this cache. */
+const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000
+
+interface IdempotencyEntry {
+  result: { card: Card; number: string }
+  expiresAt: number
+}
+
+/** Keyed by the client's Idempotency-Key header. Entries expire; this never grows unbounded. */
+const idempotencyCache = new Map<string, IdempotencyEntry>()
+
+function pruneIdempotencyCache(now: number) {
+  for (const [key, entry] of idempotencyCache) {
+    if (entry.expiresAt <= now) idempotencyCache.delete(key)
+  }
+}
 
 /** Generates the number server-side and returns it exactly once; every other read is masked. */
 export function createCard(input: CardCreateInput): {
@@ -160,13 +169,19 @@ export function createCardIdempotent(
   idempotencyKey: string | null,
   input: CardCreateInput,
 ): { card: Card; number: string } {
+  const now = Date.now()
+  pruneIdempotencyCache(now)
+
   if (idempotencyKey) {
     const cached = idempotencyCache.get(idempotencyKey)
-    if (cached) return cached
+    if (cached) return cached.result
   }
   const result = createCard(input)
   if (idempotencyKey) {
-    idempotencyCache.set(idempotencyKey, result)
+    idempotencyCache.set(idempotencyKey, {
+      result,
+      expiresAt: now + IDEMPOTENCY_TTL_MS,
+    })
   }
   return result
 }

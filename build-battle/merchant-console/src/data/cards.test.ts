@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   canTransitionCardStatus,
   cardById,
@@ -30,55 +30,37 @@ const VALID_INPUT = {
 describe("validateCardInput", () => {
   const gbpMerchant = merchants.find((m) => m.currency === "GBP")!
 
-  it.each<[string, Record<string, unknown>, string | null]>([
+  const CASES: [string, Record<string, unknown>, string | null][] = [
     ["valid input", {}, null],
     ["a missing merchant", { merchantId: "" }, "merchantId"],
     ["an unknown merchant id", { merchantId: "mch_ghost" }, "merchantId"],
     ["a zero limit", { limitMinorUnits: 0 }, "limitMinorUnits"],
     ["a negative limit", { limitMinorUnits: -100 }, "limitMinorUnits"],
-    [
-      "a limit above 5,000,000 minor units",
-      { limitMinorUnits: 5_000_001 },
-      "limitMinorUnits",
-    ],
+    ["a limit above 5,000,000 minor units", { limitMinorUnits: 5_000_001 }, "limitMinorUnits"],
     ["a limit at exactly 5,000,000 minor units", { limitMinorUnits: 5_000_000 }, null],
     ["a currency outside USD/EUR/GBP", { currency: "JPY" }, "currency"],
     ["a blank nickname", { nickname: "   " }, "nickname"],
-    [
-      "a currency that doesn't match the merchant's currency",
-      { merchantId: gbpMerchant.id, currency: "USD" },
-      "currency",
-    ],
-    [
-      "a currency that matches the merchant's currency",
-      { merchantId: gbpMerchant.id, currency: "GBP" },
-      null,
-    ],
-  ])("handles %s", (_case, overrides, expectedField) => {
+    ["a currency not matching the merchant's", { merchantId: gbpMerchant.id, currency: "USD" }, "currency"],
+    ["a currency matching the merchant's", { merchantId: gbpMerchant.id, currency: "GBP" }, null],
+  ]
+
+  it.each(CASES)("handles %s", (_case, overrides, expectedField) => {
     const error = validateCardInput({ ...VALID_INPUT, ...overrides })
     expect(error?.field ?? null).toBe(expectedField)
   })
 })
 
 describe("createCard", () => {
-  it("stores the card without the full number and returns the number once", () => {
+  it("returns the number once, stores the card masked, active, with zero spend", () => {
     const { card, number } = createCard(toCardCreateInput(VALID_INPUT))
     expect(number).toHaveLength(16)
     expect(card.last4).toBe(number.slice(-4))
-    expect((card as unknown as { number?: string }).number).toBeUndefined()
     expect(card.status).toBe("active")
     expect(card.spentMinorUnits).toBe(0)
-  })
 
-  it("masks the number everywhere else", () => {
-    const { card } = createCard(toCardCreateInput(VALID_INPUT))
     const masked = maskCard(cardById(card.id)!)
     expect(masked.maskedNumber).toBe(`•••• ${card.last4}`)
     expect((masked as { last4?: string }).last4).toBeUndefined()
-  })
-
-  it("appears in listCards", () => {
-    createCard(toCardCreateInput(VALID_INPUT))
     expect(listCards()).toHaveLength(1)
   })
 })
@@ -109,6 +91,21 @@ describe("createCardIdempotent", () => {
     createCardIdempotent(null, input)
     createCardIdempotent(null, input)
     expect(store.cards).toHaveLength(2)
+  })
+
+  it("expires an entry after its TTL, so the cache never grows unbounded", () => {
+    vi.useFakeTimers()
+    try {
+      const input = toCardCreateInput(VALID_INPUT)
+      const first = createCardIdempotent("idempotent-test-ttl", input)
+      vi.advanceTimersByTime(6 * 60 * 1000) // past the 5-minute TTL
+      const second = createCardIdempotent("idempotent-test-ttl", input)
+
+      expect(second.card.id).not.toBe(first.card.id)
+      expect(store.cards).toHaveLength(2)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

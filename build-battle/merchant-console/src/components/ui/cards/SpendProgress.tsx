@@ -4,11 +4,7 @@ import { cx } from "@/lib/utils"
 
 const AMBER_THRESHOLD = 80
 
-/**
- * Read-only visualization of spend against a card's limit.
- * spentMinorUnits never moves on its own in this codebase (no live
- * transaction feed) — this component just renders whatever it's given.
- */
+/** Read-only: spentMinorUnits never moves on its own here (no live transaction feed). */
 export function SpendProgress({
   spentMinorUnits,
   limitMinorUnits,
