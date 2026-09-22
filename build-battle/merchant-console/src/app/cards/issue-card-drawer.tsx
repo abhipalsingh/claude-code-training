@@ -56,18 +56,15 @@ function formatForDisplay(number: string): string {
   return number.replace(/(\d{4})(?=\d)/g, "$1 ")
 }
 
-/** Label + control + helper/error, shared across every field below. */
-function Field({
-  label,
-  htmlFor,
-  error,
-  helper,
-  children,
-}: {
+type FieldWrap = {
   label: React.ReactNode
   htmlFor: string
   error?: string
   helper?: string
+}
+
+/** Label + control + helper/error, shared across every field below. */
+function Field({ label, htmlFor, error, helper, children }: FieldWrap & {
   children: React.ReactNode
 }) {
   return (
@@ -85,6 +82,39 @@ function Field({
         <p className="mt-1 text-sm text-gray-500">{helper}</p>
       ) : null}
     </div>
+  )
+}
+
+/** A Field wired up to a Select, for the three dropdown fields below. */
+function SelectField({
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  disabled,
+  ...field
+}: FieldWrap & {
+  value: string
+  onValueChange: (value: string) => void
+  options: { value: string; label: string }[]
+  placeholder: string
+  disabled?: boolean
+}) {
+  return (
+    <Field {...field}>
+      <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+        <SelectTrigger id={field.htmlFor} hasError={Boolean(field.error)}>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </Field>
   )
 }
 
@@ -249,27 +279,15 @@ export function IssueCardDrawer({
                   />
                 </Field>
 
-                <Field
+                <SelectField
                   label="Merchant"
                   htmlFor={`${fieldId}-merchant`}
                   error={errors.merchantId}
-                >
-                  <Select value={merchantId} onValueChange={handleMerchantChange}>
-                    <SelectTrigger
-                      id={`${fieldId}-merchant`}
-                      hasError={Boolean(errors.merchantId)}
-                    >
-                      <SelectValue placeholder="Select a merchant" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {merchants.map((merchant) => (
-                        <SelectItem key={merchant.id} value={merchant.id}>
-                          {merchant.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
+                  value={merchantId}
+                  onValueChange={handleMerchantChange}
+                  options={merchants.map((m) => ({ value: m.id, label: m.name }))}
+                  placeholder="Select a merchant"
+                />
 
                 <Field
                   label="Spend limit"
@@ -291,7 +309,7 @@ export function IssueCardDrawer({
                   />
                 </Field>
 
-                <Field
+                <SelectField
                   label="Currency"
                   htmlFor={`${fieldId}-currency`}
                   error={errors.currency}
@@ -300,32 +318,17 @@ export function IssueCardDrawer({
                       ? "Locked to the selected merchant's currency."
                       : "Choose a merchant to set this automatically."
                   }
-                >
-                  <Select
-                    value={currency}
-                    disabled={Boolean(merchantId)}
-                    onValueChange={(value) => {
-                      setCurrency(value as Currency)
-                      clearError("currency")
-                    }}
-                  >
-                    <SelectTrigger
-                      id={`${fieldId}-currency`}
-                      hasError={Boolean(errors.currency)}
-                    >
-                      <SelectValue placeholder="Currency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CURRENCIES.map((code) => (
-                        <SelectItem key={code} value={code}>
-                          {code}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
+                  value={currency}
+                  disabled={Boolean(merchantId)}
+                  onValueChange={(value) => {
+                    setCurrency(value as Currency)
+                    clearError("currency")
+                  }}
+                  options={CURRENCIES.map((code) => ({ value: code, label: code }))}
+                  placeholder="Currency"
+                />
 
-                <Field
+                <SelectField
                   label={
                     <>
                       Category{" "}
@@ -336,23 +339,14 @@ export function IssueCardDrawer({
                   }
                   htmlFor={`${fieldId}-category`}
                   helper="Locks the card to this spending category. Cannot be changed after issue."
-                >
-                  <Select
-                    value={category}
-                    onValueChange={(value) => setCategory(value as CardCategory)}
-                  >
-                    <SelectTrigger id={`${fieldId}-category`}>
-                      <SelectValue placeholder="No category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CATEGORIES.map((value) => (
-                        <SelectItem key={value} value={value}>
-                          {humanizeCategory(value)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
+                  value={category}
+                  onValueChange={(value) => setCategory(value as CardCategory)}
+                  options={CATEGORIES.map((value) => ({
+                    value,
+                    label: humanizeCategory(value),
+                  }))}
+                  placeholder="No category"
+                />
 
                 {errors.form && (
                   <>
